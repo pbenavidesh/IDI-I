@@ -7,9 +7,8 @@
 
 # Paqueterias necesarias y limpiar el entorno####
 rm(list=ls())
-setwd("C:/Users/behep/OneDrive - ITESO/PhD")
-if (!require("ggplot2")) install.packages("ggplot2")
-library(ggplot2)
+if (!require("tidyverse")) install.packages("tidyverse")
+library(tidyverse)
 
 
 # Datos para el analisis ####
@@ -33,18 +32,14 @@ mape_recta <- function(X){
 }
 
 # Funcion creacion recta ####
-rectaFun <- function(q=100,var=0.5){
-  x<-seq(from = 1, to = q,by = 1)
+rectaFun <- function(q = 100,var = 0.5, m = 3, b = 8){
+  x <- seq(from = 1, to = q,by = 1)
   
   n <- length(x)
   
-  b <- 8
-  
-  m <- 3
-  
-  z<- rnorm(n,sd=var)
-  y <- m*x + b + z
-  return(cbind(y,x))
+  z <- rnorm(n, sd = var)
+  y <- m * x + b + z
+  return(cbind(y, x))
   
 }
 
@@ -54,38 +49,37 @@ mape_recta_nlm <- function(X){
   x <- seq(from = 1, to = n,by = 1)
   M <- X[1]
   B <- X[2]
-  y_hat <- M%*%t(x)+B%*%t(rep(1,n)) 
-  ym <- rep(1,length(M))%*%t(y)
-  temp<-rowSums(abs((ym-y_hat)/
+  y_hat <- M %*% t(x) + B %*% t(rep(1,n)) 
+  ym <- rep(1, length(M)) %*% t(y)
+  temp <- rowSums(abs((ym - y_hat)/
                 ym))
   
-  mape_error <- 1/n*temp
+  mape_error <- 1/n * temp
   return(mape_error)
 }
 
 # Funcion montecarlo nlm ####
-montecarloFun <- function(b=8,m=5){
+montecarloFun <- function(m = 3, b = 8){
   ans=nlm(mape_recta_nlm,c(b,m))
-  return(c(ans$estimate,ans$minimum
-  ))  
+  return(c(ans$estimate, ans$minimum))  
 }
 
 # Funcion MCO ####
 mco <- function(x,y){
   #Calcular la regresi?n lineal
-  lin <- lm(y~x)
+  lin <- lm(y ~ x)
   #asignar valores estimados de m ^ b
   m_mco <- lin$coefficients[2]
   b_mco <- lin$coefficients[1]
   #recta estimada de MCO-OLS
-  y_mco <- m_mco*x + b_mco
+  y_mco <- m_mco * x + b_mco
   #matriz para incluir todos los valores de m^b
-  X_mco <- matrix(c(m_mco, b_mco),ncol = 2)
+  X_mco <- matrix(c(m_mco, b_mco), ncol = 2)
   #calcular el RMSE de MCO-OLS
   mco_rss <- c(crossprod(lin$residuals))
   mco_mse <- mco_rss / (length(lin$residuals)-2)
   mco_rmse <- sqrt(mco_mse)
-  return(c(mape_recta(X_mco),mco_rmse))
+  return(c(mape_recta(X_mco), mco_rmse))
 }
 
 # Simulacion nlm ####
@@ -96,7 +90,7 @@ y_reales <- c()
 valores <-c()
 n <- 10000 #simulaciones
 
-# Simulaci?n
+# Simulacion
 for (i in 1:n){
   l <- rectaFun(var = var)
   y<-l[,1]
@@ -105,23 +99,23 @@ for (i in 1:n){
     ans<-montecarloFun()
   }, error=function(e){cat("ERROR :",conditionMessage(e), 
                                       "\n")})
-  montecarlo_nlm[i]<-ans[3]
-  valores[[i]]<-data.frame(ans[1:2])
-  mco_sim_mape[[i]]<-mco(x,y)
+  montecarlo_nlm[i] <- ans[3]
+  valores[[i]] <- data.frame(ans[1:2])
+  mco_sim_mape[[i]] <- mco(x,y)
   y_reales[[i]] <- l
 }
 
-# Inicializaci?n de variables para mape y rmse - nlm
+# Inicializacion de variables para mape y rmse - nlm
 y_mapes <- c()
 mape_resids <- c()
 mape_rss <- c()
 mape_mse <- c()
 mapes_nlm <-c()
 rmse_nlm <- c()
-# C?lculo de MAPE y RMSE para m?todo nlm
+# Calculo de MAPE y RMSE para metodo nlm
 for (i in 1:n){
-  mapes_nlm[i]<-abs(montecarlo_nlm[i])
-  y_mapes[[i]] <- valores[[i]][1,]*x +
+  mapes_nlm[i] <- abs(montecarlo_nlm[i])
+  y_mapes[[i]] <- valores[[i]][1,] * x +
     valores[[i]][2,]
   mape_resids[[i]] <- y_reales[[i]][,1]-y_mapes[[i]]
   mape_rss[[i]] <- c(crossprod(mape_resids[[i]]))
@@ -129,7 +123,7 @@ for (i in 1:n){
   rmse_nlm[[i]] <- sqrt(mape_mse[[i]])
 }
 
-# Inicializaci?n de variables para mape y rmse - MCO
+# Inicializacion de variables para mape y rmse - MCO
 mapes_mco <- c()
 rmse_mco <- c()
 # C?lculo de mape y rmse para MCO
@@ -191,6 +185,5 @@ t.test(rmse_nlm,rmse_mco)
 end_time <- Sys.time()
 end_time - start_time
 # Guardar los resultados ####
-save.image(paste("C:/Users/behep/OneDrive - ITESO/PhD/",
-"Tesis/Semestre 1/Simulaciones R/nlm10k it sd ",var,
+save.image(paste("nlm10k it sd ",var,
 ".RData",sep = ""))

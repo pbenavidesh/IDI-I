@@ -16,6 +16,9 @@ start_time <- Sys.time() #start the timer
 # var <- 30
 var <- c(0.0001,0.001,0.01,0.05,0.1,0.5,seq(1,10),
          seq(15,30,by=5),50,100)
+len_var <- length(var)
+iter_per_var <- 2000
+
 # Funcion de MAPE para una recta ####
 mape_recta <- function(X){
   n <- length(y)
@@ -88,11 +91,11 @@ montecarlo_nlm <- c()
 mco_sim_mape <- c()
 y_reales <- c()
 valores <-c()
-n <- 10000 #simulaciones
+n <- len_var * iter_per_var #simulaciones
 
 # Simulacion
 for (i in 1:n){
-  l <- rectaFun(var = var)
+  l <- rectaFun(var = var[(i %/% (iter_per_var+0.01)+1)])
   y<-l[,1]
   x<-l[,2]
   tryCatch({
@@ -126,7 +129,7 @@ for (i in 1:n){
 # Inicializacion de variables para mape y rmse - MCO
 mapes_mco <- c()
 rmse_mco <- c()
-# C?lculo de mape y rmse para MCO
+# Calculo de mape y rmse para MCO
 for (i in 1:n){
   mapes_mco[i] <- abs(mco_sim_mape[[i]][1])
   rmse_mco[i] <- mco_sim_mape[[i]][2]
@@ -134,7 +137,8 @@ for (i in 1:n){
 
 # Graficar scatterplot de NLM y MCO para RMSE vs. MAPE ####
 
-modelo <-  data.frame(mapes_nlm,rmse_nlm,mapes_mco,rmse_mco)
+modelo <-  data.frame(mapes_nlm,rmse_nlm,mapes_mco,rmse_mco,
+                      sd = rep(var,iter_per_var))
 
 scatter_mape_v_rmse <- ggplot(data = modelo)+
   geom_point(aes(x= rmse_nlm, y = mapes_nlm,colour="NLM"))+
@@ -145,6 +149,7 @@ scatter_mape_v_rmse <- ggplot(data = modelo)+
   scale_colour_manual(values = c(NLM="blue", OLS ="red")) #+
   # xlim(20,40)+ylim(0,25)
 scatter_mape_v_rmse
+
 # Validar diferencias significativas MAPE vs. RMSE ####
 modelo2<- data.frame(mapes = c(mapes_nlm,mapes_mco),
                      rmse = c(rmse_nlm,rmse_mco), 
@@ -187,3 +192,17 @@ end_time - start_time
 # Guardar los resultados ####
 save.image(paste("nlm10k it sd ",var,
 ".RData",sep = ""))
+
+
+# Analisis de MAPEs y RMSEs por desv. std ####
+analisis <- modelo %>%
+  group_by(sd) %>% 
+  summarise( 
+            MAPE = mean(mapes_nlm),
+            RMSE = mean(rmse_nlm))  
+analisis
+
+ggplot(data = analisis) + 
+  geom_line(aes(x = sd, y = MAPE),color = "blue") + 
+  ggtitle("MAPE by sd")
+  

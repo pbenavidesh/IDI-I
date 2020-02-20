@@ -13,11 +13,11 @@ library(tidyverse)
 
 # Datos para el analisis ####
 start_time <- Sys.time() #start the timer
-# var <- 30
-var <- c(0.0001,0.001,0.01,0.05,0.1,0.5,seq(1,10),
-         seq(15,30,by=5),50,100)
+var <- c(seq(0.5,20, by = 0.5))
+# var <- c(0.0001,0.001,0.01,0.05,0.1,0.5,seq(1,10),
+#          seq(15,50,by=5))
 len_var <- length(var)
-iter_per_var <- 2000
+iter_per_var <- 1000
 
 # Funcion de MAPE para una recta ####
 mape_recta <- function(X){
@@ -136,19 +136,42 @@ for (i in 1:n){
 }
 
 # Graficar scatterplot de NLM y MCO para RMSE vs. MAPE ####
+sd_level <- c()
+for (i in 1:8){
+  sd_level <- c(sd_level,rep(i,iter_per_var))
+}
 
 modelo <-  data.frame(mapes_nlm,rmse_nlm,mapes_mco,rmse_mco,
-                      sd = rep(var,iter_per_var))
+                      sd = rep(var,iter_per_var),
+                      sd_level)
 
 scatter_mape_v_rmse <- ggplot(data = modelo)+
-  geom_point(aes(x= rmse_nlm, y = mapes_nlm,colour="NLM"))+
-  geom_point(aes(x= rmse_mco,y = mapes_mco, colour="OLS"))+
-  ggtitle(paste("Simulation with SD= ",var))+
+  geom_point(aes(x= rmse_nlm, y = mapes_nlm,colour="NLM"),
+             alpha = 0.1)+
+  geom_point(aes(x= rmse_mco,y = mapes_mco, colour="OLS"),
+             alpha = 0.1)+
+  # ggtitle(paste("Simulation with SD= ",var))+
   guides(col = guide_legend(title = ""))+
   xlab("RMSE") + ylab("MAPE")+
-  scale_colour_manual(values = c(NLM="blue", OLS ="red")) #+
-  # xlim(20,40)+ylim(0,25)
+  scale_colour_manual(values = c(NLM="blue", OLS ="red")) +
+  xlim(0,25)+ylim(0,5)
 scatter_mape_v_rmse
+
+# prueba colores por SD
+ggplot(data = modelo)+
+  geom_point(aes(x= rmse_nlm, y = mapes_nlm,
+                 colour=factor(sd_level)),
+             alpha = 0.2)+
+  # geom_point(aes(x= rmse_mco,y = mapes_mco, colour=sd),
+  #            alpha = 0.1)+
+  # ggtitle(paste("Simulation with SD= ",var))+
+  guides(col = guide_legend(title = ""))+
+  xlab("RMSE") + ylab("MAPE")+
+  # scale_colour_manual(values = c(NLM="blue", OLS ="red")) +
+  xlim(0,25)+ylim(0,0.5) +
+  scale_color_hue()
+
+
 
 # Validar diferencias significativas MAPE vs. RMSE ####
 modelo2<- data.frame(mapes = c(mapes_nlm,mapes_mco),
@@ -205,4 +228,12 @@ analisis
 ggplot(data = analisis) + 
   geom_line(aes(x = sd, y = MAPE),color = "blue") + 
   ggtitle("MAPE by sd")
-  
+
+ggplot(data = analisis) + 
+  geom_line(aes(x = sd, y = RMSE),color = "red") + 
+  ggtitle("RMSE by sd")
+
+ggplot(data = modelo) + 
+  geom_boxplot(aes(x = factor(sd_level), y = mapes_nlm),
+               alpha = 0.5) + 
+  ggtitle("MAPE by sd")  

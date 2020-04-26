@@ -9,16 +9,15 @@
 rm(list=ls())
 if (!require("tidyverse")) install.packages("tidyverse")
 library(tidyverse)
-
+library(plotly)
+library(xtable)
 
 # Datos para el analisis ####
-start_time <- Sys.time() #start the timer
-var <- c(seq(0.5,20, by = 0.5))
+var <- c(seq(0.5,500, by = 0.005))
 # var <- c(0.0001,0.001,0.01,0.05,0.1,0.5,seq(1,10),
 #          seq(15,50,by=5))
 len_var <- length(var)
-iter_per_var <- 1000
-
+iter_per_var <- 1
 # Funcion de MAPE para una recta ####
 mape_recta <- function(X){
   n <- length(y)
@@ -87,6 +86,7 @@ mco <- function(x,y){
 
 # Simulacion nlm ####
 # Inicializacion de variables - simulacion
+start_time <- Sys.time() #start the timer
 montecarlo_nlm <- c()
 mco_sim_mape <- c()
 y_reales <- c()
@@ -135,6 +135,9 @@ for (i in 1:n){
   rmse_mco[i] <- mco_sim_mape[[i]][2]
 }
 
+end_time <- Sys.time()
+end_time - start_time
+
 # Graficar scatterplot de NLM y MCO para RMSE vs. MAPE ####
 sd_level <- c()
 for (i in 1:8){
@@ -142,10 +145,16 @@ for (i in 1:8){
 }
 
 modelo <-  data.frame(mapes_nlm,rmse_nlm,mapes_mco,rmse_mco,
-                      sd = rep(var,iter_per_var),
-                      sd_level)
+                      sd = rep(var,iter_per_var))
 
-scatter_mape_v_rmse <- ggplot(data = modelo)+
+# modelo <-  data.frame(mapes_nlm,rmse_nlm,mapes_mco,rmse_mco,
+#                       sd = rep(var,iter_per_var),
+#                       sd_level)
+
+g <- theme(text = element_text(family = "serif",
+                               size = 12))
+
+scatter_mape_v_rmse <- ggplot(data = modelo)+ g +
   geom_point(aes(x= rmse_nlm, y = mapes_nlm,colour="NLM"),
              alpha = 0.1)+
   geom_point(aes(x= rmse_mco,y = mapes_mco, colour="OLS"),
@@ -158,7 +167,7 @@ scatter_mape_v_rmse <- ggplot(data = modelo)+
 scatter_mape_v_rmse
 
 # prueba colores por SD
-ggplot(data = modelo)+
+ggplot(data = modelo)+ g +
   geom_point(aes(x= rmse_nlm, y = mapes_nlm,
                  colour=factor(sd_level)),
              alpha = 0.2)+
@@ -180,7 +189,7 @@ modelo2<- data.frame(mapes = c(mapes_nlm,mapes_mco),
                                 rep("OLS",n)))
 #boxplot para mapes
 boxplot_mapes <- ggplot(data = modelo2, aes(x = metodo,
-                                                y = mapes))+
+                                                y = mapes)) + g +
   geom_boxplot(fill = "grey80", col = "blue")+
   scale_x_discrete()+ xlab("Method") + ylab("MAPES")
 boxplot_mapes
@@ -196,10 +205,10 @@ mod_mapes <- lm(modelo2$mapes ~ modelo2$metodo,
 
 # The linear regression
 # summary(mod_mapes)
-xtable(summary(mod_mapes),display = c("s","e",
-                                "e","f","g"),
-       caption = paste("Linear regression with SD=",var),
-       label = paste("lin_reg_sd_",var,sep = ""))
+# xtable(summary(mod_mapes),display = c("s","e",
+#                                 "e","f","g"),
+#        caption = paste("Linear regression with SD=",var),
+#        label = paste("lin_reg_sd_",var,sep = ""))
 
 # Confidence intervals
 confint(mod_mapes)
@@ -210,11 +219,9 @@ confint(mod_mapes)
 t.test(mapes_nlm,mapes_mco)
 t.test(rmse_nlm,rmse_mco)
 
-end_time <- Sys.time()
-end_time - start_time
+
 # Guardar los resultados ####
-save.image(paste("nlm10k it sd ",var,
-".RData",sep = ""))
+#save.image("nlm500k it var 0_500 sd.RData")
 
 
 # Analisis de MAPEs y RMSEs por desv. std ####
@@ -225,15 +232,107 @@ analisis <- modelo %>%
             RMSE = mean(rmse_nlm))  
 analisis
 
-ggplot(data = analisis) + 
-  geom_line(aes(x = sd, y = MAPE),color = "blue") + 
-  ggtitle("MAPE by sd")
+ggplot(data = analisis) + g + 
+  geom_point(aes(x = sd, y = MAPE),color = "light blue",
+             alpha = 0.7) + 
+  labs(x = "SD", y = "MAPE") + 
+  geom_hline(yintercept = 1, linetype = "dashed",
+             color = "red", size = 1) +
+  geom_smooth(aes(x = sd, y = MAPE),color = "dark green")
 
-ggplot(data = analisis) + 
+# ggsave("MAPE by sd.jpeg")
+
+ggplot(data = analisis) + g + 
+  geom_point(aes(x = sd, y = RMSE),color = "light blue",
+             alpha = 0.7) + 
+  labs(x = "SD", y = "RMSE") + 
+  geom_abline(slope = 1,intercept = 0, linetype = "dashed",
+             color = "red", size = 1) +
+  geom_smooth(aes(x = sd, y = RMSE),color = "dark green")
+
+ggsave("RMSE by sd.jpeg")
+
+ggplot(data = analisis) + g +
+  geom_line(aes(x = sd, y = RMSE),color = "red") + 
+  ggtitle("RMSE by sd")
+
+
+ggplot(data = modelo) + g +
+  geom_boxplot(aes(x = factor(sd_level), y = mapes_nlm),
+               alpha = 0.5) + 
+  labs(x = "SD", y = "RMSE") 
+
+# - - - - - - - - - -- 
+analisis2 <- modelo %>%
+  group_by(sd) %>% 
+  summarise( 
+    MAPE = mean(mapes_mco),
+    RMSE = mean(rmse_mco))  
+analisis2
+
+
+ggplot(data = analisis2) + g + 
+  geom_point(aes(x = sd, y = MAPE),color = "light blue",
+             alpha = 0.7) + 
+  labs(x = "SD", y = "MAPE") + 
+  geom_hline(yintercept = 1, linetype = "dashed",
+             color = "red", size = 1) +
+  geom_smooth(aes(x = sd, y = MAPE),color = "dark green") +
+  ylim(c(0,25))
+
+ggsave("MAPE by sd OLS.jpeg")
+
+ggplot(data = analisis2) + g + 
+  geom_point(aes(x = sd, y = RMSE),color = "light blue",
+             alpha = 0.7) + 
+  labs(x = "SD", y = "RMSE") + 
+  geom_abline(slope = 1,intercept = 0, linetype = "dashed",
+              color = "red", size = 1) +
+  geom_smooth(aes(x = sd, y = RMSE),color = "dark green")
+
+ggsave("RMSE by sd OLS.jpeg")
+
+
+
+ggplotly(ggplot(data = analisis2) + 
+  geom_line(aes(x = sd, y = MAPE),color = "blue") + 
+  ggtitle("MAPE by sd") )
+
+ggplot(data = analisis2) + 
   geom_line(aes(x = sd, y = RMSE),color = "red") + 
   ggtitle("RMSE by sd")
 
 ggplot(data = modelo) + 
   geom_boxplot(aes(x = factor(sd_level), y = mapes_nlm),
                alpha = 0.5) + 
-  ggtitle("MAPE by sd")  
+  ggtitle("MAPE by sd") 
+
+# Desigualdad entre Em y MAPE ####
+
+
+Xj <- matrix(nrow = len_var, ncol = 100)
+for (j in 1:len_var){
+  Xj[j,] <- y_reales[[j]][1:100]
+}
+
+for (i in 1:len_var){
+  k[i] <- sqrt(sum(1/(y_reales[[i]][1:100]**2)))
+  rmse[i] <- sqrt(sum((y_reales[[i]][1:100] - y_mapes[[i]][1:100])**2))
+  mape[i] <- 1/len_var * 
+    sum(abs((y_reales[[i]][1:100]-y_mapes[[i]][1:100])/
+                                y_reales[[i]][1:100]))
+}
+
+
+k <- sqrt(sum(1/(y_reales[[1]][1:100]**2)))
+rmse <- sqrt(sum((y_reales[[1]][1:100] - y_mapes[[1]][1:100])**2))
+mape <- 1/len_var * sum(abs((y_reales[[1]][1:100]-y_mapes[[1]][1:100])/
+              y_reales[[1]][1:100]))
+
+sum(0<=mape)
+sum(mape <= k * rmse * 1/len_var)
+# Al cumplirse esta desigualdad, pareceria entonces que son 
+# equivalentes las dos métricas.
+
+
+
